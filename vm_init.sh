@@ -16,7 +16,7 @@ set -euo pipefail
 # ------------------------------------------------------------------------------
 # 🛠️  CREDENCIAIS DO CLIENTE — ALTERE APENAS AQUI PARA CADA NOVO DEPLOY
 # ------------------------------------------------------------------------------
-CLIENTE_SENHA_VPN="SenhaSuperSeguraExclusivaDesseCliente2026!"
+CLIENTE_SENHA_VPN="12345678"
 
 # ------------------------------------------------------------------------------
 # 🗄️  VOLUME DO BANCO DE DADOS
@@ -24,6 +24,13 @@ CLIENTE_SENHA_VPN="SenhaSuperSeguraExclusivaDesseCliente2026!"
 # Deixe vazio ("") para ignorar a criação do volume.
 # ------------------------------------------------------------------------------
 DOCKER_VOLUME_BD="dados_postgres"
+
+# ------------------------------------------------------------------------------
+# 🗄️  NETWORK
+# Preencha para criar a network Docker automaticamente.
+# Deixe vazio ("") para ignorar a criação do volume.
+# ------------------------------------------------------------------------------
+DOCKER_NETWORK="dados_postgres"
 
 # ------------------------------------------------------------------------------
 # ⚙️  CONFIGURAÇÕES GERAIS — normalmente não precisa alterar
@@ -172,7 +179,7 @@ else
 fi
 
 # ==============================================================================
-step "[7/8] Criando Volume Docker do Banco de Dados"
+step "[7/8] Criando Volume Docker do Banco de Dados e Network"
 # ==============================================================================
 if [ -z "$DOCKER_VOLUME_BD" ]; then
     log "⏭️  DOCKER_VOLUME_BD não preenchida — criação de volume ignorada."
@@ -184,6 +191,19 @@ else
         log "✅ Volume $DOCKER_VOLUME_BD criado."
     fi
     log "   Para inspecionar: docker volume inspect $DOCKER_VOLUME_BD"
+fi
+
+
+if [ -z "$DOCKER_NETWORK" ]; then
+    log "⏭️  DOCKER_NETWORK não preenchida — criação de network ignorada."
+else
+    if docker network inspect "$DOCKER_NETWORK" &>/dev/null; then
+        log "⏭️  Network $DOCKER_NETWORK já existe — pulando."
+    else
+        docker network create "$DOCKER_NETWORK"
+        log "✅ Network $DOCKER_NETWORK criado."
+    fi
+    log "   Para inspecionar: docker network inspect $DOCKER_NETWORK"
 fi
 
 # ==============================================================================
