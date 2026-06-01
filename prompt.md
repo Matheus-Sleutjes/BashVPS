@@ -1,4 +1,4 @@
-Aja como um Arquiteto de Software sênior especialista em .NET 8+ e Angular (v20+ utilizando Standalone Components e Signals). Preciso que você gere a estrutura de pastas e o código base para um MVP de um sistema de vitrine e vendas com controle de garantias. Para fins de MVP rápido, não haverá autenticação ou controle de login (todas as rotas e endpoints são públicos por enquanto).
+Aja como um Arquiteto de Software sênior especialista em .NET 10 e Angular (v20+ utilizando Standalone Components e Signals). Preciso que você gere a estrutura de pastas e o código base para um MVP de um sistema de vitrine e vendas com controle de garantias. Para fins de MVP rápido, não haverá autenticação ou controle de login (todas as rotas e endpoints são públicos por enquanto).
 
 O ecossistema deve seguir rigorosamente os princípios do SOLID, Injeção de Dependência (DIP) e uma Arquitetura em Camadas desacoplada. 
 
