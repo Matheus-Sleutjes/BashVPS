@@ -1,18 +1,33 @@
 #!/bin/bash
+
 set -euo pipefail
 
 # ==============================================================================
-# 🗄️  SCRIPT DE RESTORE DE BANCO DE DADOS
+# 🗄️ SCRIPT DE RESTORE DE BANCO DE DADOS
 # ==============================================================================
 
 # ------------------------------------------------------------------------------
-# 🛠️  CONFIGURAÇÕES — CARREGADAS DO .ENV NA RAIZ
+# 🛠️ CONFIGURAÇÕES — CARREGADAS DO .ENV NA RAIZ
 # ------------------------------------------------------------------------------
-if [ -f "$(dirname "$0")/.env" ]; then
-    export $(grep -v '^#' "$(dirname "$0")/.env" | xargs)
-elif [ -f ".env" ]; then
-    export $(grep -v '^#' .env | xargs)
-fi
+
+load_env() {
+    local ENV_FILE=""
+    if [ -f "$(dirname "$0")/.env" ]; then
+        ENV_FILE="$(dirname "$0")/.env"
+    elif [ -f ".env" ]; then
+        ENV_FILE=".env"
+    fi
+
+    if [ -n "$ENV_FILE" ]; then
+        # FIX: loop seguro no lugar de export $(xargs) — suporta valores com espaços e caracteres especiais
+        while IFS='=' read -r KEY VALUE; do
+            [[ "$KEY" =~ ^#.*$ || -z "$KEY" ]] && continue
+            export "$KEY=$VALUE"
+        done < <(grep -v '^#' "$ENV_FILE")
+    fi
+}
+
+load_env
 
 AWS_ACCESS_KEY_ID="${AWS_ACCESS_KEY_ID:-}"
 AWS_SECRET_ACCESS_KEY="${AWS_SECRET_ACCESS_KEY:-}"
@@ -31,6 +46,7 @@ POSTGRES_IMAGE="${POSTGRES_IMAGE:-postgres:16}"
 # ==============================================================================
 # INICIALIZAÇÃO
 # ==============================================================================
+
 LOG="${RESTORE_LOG:-/var/log/restore_banco.log}"
 ARQUIVO_LOCAL="/tmp/restore_$(date '+%Y-%m-%d_%H-%M-%S').sql.gz"
 CONTAINER_TEMP="${CONTAINER_BANCO}_restore"
@@ -42,11 +58,13 @@ erro() {
     docker rm -f "$CONTAINER_TEMP" 2>/dev/null || true
     exit 1
 }
+
 trap 'erro $LINENO "$BASH_COMMAND"' ERR
 
 # ==============================================================================
 # VALIDAÇÕES
 # ==============================================================================
+
 validar_root() {
     [ "$(id -u)" -eq 0 ] || { echo "❌ Rode como root: sudo bash restore-bd.sh"; exit 1; }
 }
@@ -66,8 +84,8 @@ validar_variaveis() {
 }
 
 validar_prerequisitos() {
-    command -v aws    &>/dev/null || { log "❌ AWS CLI não encontrado.";  exit 1; }
-    command -v docker &>/dev/null || { log "❌ Docker não encontrado.";   exit 1; }
+    command -v aws    &>/dev/null || { log "❌ AWS CLI não encontrado."; exit 1; }
+    command -v docker &>/dev/null || { log "❌ Docker não encontrado.";  exit 1; }
 
     [ -f "$COMPOSE_DIR/docker-compose.yml" ] || {
         log "❌ docker-compose.yml não encontrado em $COMPOSE_DIR"
@@ -78,6 +96,7 @@ validar_prerequisitos() {
 # ==============================================================================
 # ETAPAS
 # ==============================================================================
+
 buscar_backup_recente() {
     log "Buscando backup mais recente em $S3_BUCKET ..."
 
@@ -89,21 +108,20 @@ buscar_backup_recente() {
         | awk '{print $4}')
 
     [ -n "$ARQUIVO_RECENTE" ] || { log "❌ Nenhum backup encontrado no bucket."; exit 1; }
-
     log "✅ Backup mais recente: $ARQUIVO_RECENTE"
 }
 
 confirmar_operacao() {
     echo ""
-    echo "  ============================================"
-    echo "  Backup a restaurar : $ARQUIVO_RECENTE"
-    echo "  Volume Docker      : $DOCKER_VOLUME"
-    echo "  Compose dir        : $COMPOSE_DIR"
-    echo "  ============================================"
-    echo "  ⚠️  O volume $DOCKER_VOLUME será APAGADO e recriado."
-    echo "  ⚠️  Esta operação não pode ser desfeita."
+    echo "   ============================================"
+    echo "   Backup a restaurar : $ARQUIVO_RECENTE"
+    echo "   Volume Docker      : $DOCKER_VOLUME"
+    echo "   Compose dir        : $COMPOSE_DIR"
+    echo "   ============================================"
+    echo "   ⚠️  O volume $DOCKER_VOLUME será APAGADO e recriado."
+    echo "   ⚠️  Esta operação não pode ser desfeita."
     echo ""
-    read -rp "  Digite CONFIRMAR para continuar: " CONFIRMACAO
+    read -rp "   Digite CONFIRMAR para continuar: " CONFIRMACAO
     [ "$CONFIRMACAO" = "CONFIRMAR" ] || { log "Operação cancelada pelo usuário."; exit 0; }
 }
 
@@ -114,13 +132,11 @@ parar_containers_e_recriar_volume() {
 
     log "Removendo volume $DOCKER_VOLUME..."
     docker volume rm "$DOCKER_VOLUME" 2>/dev/null || true
-
     docker volume create "$DOCKER_VOLUME"
     log "✅ Volume $DOCKER_VOLUME recriado zerado."
 }
 
 subir_container_temporario() {
-    # Garante que não existe um container temporário anterior pendurado
     docker rm -f "$CONTAINER_TEMP" 2>/dev/null || true
 
     log "Subindo container temporário $CONTAINER_TEMP ($POSTGRES_IMAGE)..."
@@ -145,7 +161,19 @@ subir_container_temporario() {
 baixar_backup() {
     log "Baixando $ARQUIVO_RECENTE do S3..."
     aws s3 cp "${S3_BUCKET}/${ARQUIVO_RECENTE}" "$ARQUIVO_LOCAL" --region "$AWS_REGION"
-    log "✅ Download concluído. Tamanho: $(du -sh "$ARQUIVO_LOCAL" | cut -f1)"
+
+    local TAMANHO
+    TAMANHO=$(du -sh "$ARQUIVO_LOCAL" | cut -f1)
+    log "✅ Download concluído. Tamanho: $TAMANHO"
+
+    # FIX: valida integridade do arquivo antes de tentar restaurar
+    log "Validando integridade do arquivo baixado..."
+    if ! gzip -t "$ARQUIVO_LOCAL" 2>/dev/null; then
+        log "❌ Arquivo corrompido detectado — abortando restore."
+        rm -f "$ARQUIVO_LOCAL"
+        exit 1
+    fi
+    log "✅ Integridade do arquivo confirmada."
 }
 
 restaurar_banco() {
@@ -159,7 +187,7 @@ restaurar_banco() {
 subir_servicos() {
     log "Removendo container temporário..."
     docker stop "$CONTAINER_TEMP"
-    docker rm   "$CONTAINER_TEMP"
+    docker rm "$CONTAINER_TEMP"
 
     log "Subindo todos os serviços com docker compose..."
     cd "$COMPOSE_DIR" && docker compose up -d
@@ -169,6 +197,7 @@ subir_servicos() {
 # ==============================================================================
 # EXECUÇÃO
 # ==============================================================================
+
 validar_root
 validar_variaveis
 
