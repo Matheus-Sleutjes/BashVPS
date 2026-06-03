@@ -1,5 +1,6 @@
 #!/bin/bash
-
+# garante LF em todos os scripts da pasta
+sed -i 's/\r//' "$(dirname "$0")"/*.sh "$(dirname "$0")"/.env* 2>/dev/null || true
 set -euo pipefail
 
 # ==============================================================================
