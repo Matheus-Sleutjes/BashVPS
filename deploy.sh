@@ -2,29 +2,33 @@
 set -euo pipefail
 
 # ==============================================================================
-# ⚠️  ATENÇÃO — ARQUIVO SENSÍVEL
-# NUNCA faça commit deste arquivo. Contém credenciais GitHub.
-# Guarde localmente em: /clientes/<nome-cliente>/deploy.sh
+# 🚀 SCRIPT DE DEPLOY
 # ==============================================================================
 
 # ------------------------------------------------------------------------------
-# 🛠️  CREDENCIAIS E REPOSITÓRIOS — ALTERE AQUI PARA CADA NOVO DEPLOY
+# 🛠️  CONFIGURAÇÕES — CARREGADAS DO .ENV NA RAIZ
 # ------------------------------------------------------------------------------
-GITHUB_USER="seu_usuario_do_github"
-GITHUB_TOKEN="ghp_seu_token_aqui"
+if [ -f "$(dirname "$0")/.env" ]; then
+    export $(grep -v '^#' "$(dirname "$0")/.env" | xargs)
+elif [ -f ".env" ]; then
+    export $(grep -v '^#' .env | xargs)
+fi
+
+GITHUB_USER="${GITHUB_USER:-Matheus-Sleutjes}"
+GITHUB_TOKEN="${GITHUB_TOKEN:-}"
 
 # Formato: "nome_pasta|nome_repositorio"
 declare -a REPOS=(
-    "backend|nome-repo-backend"
-    "frontend|nome-repo-frontend"
-    "infra|nome-repo-infra"
+    "api|ApiTesteDeploy"
+    #"frontend|nome-repo-frontend"
+    #"infra|nome-repo-infra"
 )
 
 # ------------------------------------------------------------------------------
 # ⚙️  CONFIGURAÇÕES GERAIS
 # ------------------------------------------------------------------------------
-PASTA_PROJETO="/app"
-LOG_FILE="/var/log/deploy.log"
+PASTA_PROJETO="${PASTA_PROJETO:-/app}"
+LOG_FILE="${DEPLOY_LOG:-/var/log/deploy.log}"
 
 # ==============================================================================
 # VALIDAÇÕES

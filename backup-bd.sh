@@ -2,29 +2,34 @@
 set -euo pipefail
 
 # ==============================================================================
-# ⚠️  ATENÇÃO — ARQUIVO SENSÍVEL
-# NUNCA faça commit deste arquivo. Contém credenciais AWS.
-# Guarde localmente em: /clientes/<nome-cliente>/backup-bd.sh
+# 🗄️  SCRIPT DE BACKUP DE BANCO DE DADOS
 # ==============================================================================
 
 # ------------------------------------------------------------------------------
-# 🛠️  CONFIGURAÇÕES — ALTERE AQUI PARA CADA NOVO DEPLOY
+# 🛠️  CONFIGURAÇÕES — CARREGADAS DO .ENV NA RAIZ
 # ------------------------------------------------------------------------------
-AWS_ACCESS_KEY_ID="SUA_ACCESS_KEY_AQUI"
-AWS_SECRET_ACCESS_KEY="SUA_SECRET_KEY_AQUI"
-AWS_REGION="us-east-1"
-S3_BUCKET="s3://nome-do-seu-bucket/backups"
+# Procura o .env na pasta do script ou na pasta atual
+if [ -f "$(dirname "$0")/.env" ]; then
+    export $(grep -v '^#' "$(dirname "$0")/.env" | xargs)
+elif [ -f ".env" ]; then
+    export $(grep -v '^#' .env | xargs)
+fi
 
-CONTAINER_BANCO="bd_producao"
-DOCKER_VOLUME_BD="dados_postgres"
-DB_USER="admin_usuario"
+AWS_ACCESS_KEY_ID="${AWS_ACCESS_KEY_ID:-}"
+AWS_SECRET_ACCESS_KEY="${AWS_SECRET_ACCESS_KEY:-}"
+AWS_REGION="${AWS_REGION:-us-east-1}"
+S3_BUCKET="${S3_BUCKET:-}"
 
-RETENCAO_DIAS=7
+CONTAINER_BANCO="${CONTAINER_BANCO:-bd_producao}"
+DOCKER_VOLUME_BD="${DOCKER_VOLUME_BD:-dados_postgres}"
+DB_USER="${DB_USER:-admin_usuario}"
+
+RETENCAO_DIAS="${RETENCAO_DIAS:-7}"
 
 # ==============================================================================
 # INICIALIZAÇÃO
 # ==============================================================================
-LOG="/var/log/backup_banco.log"
+LOG="${BACKUP_LOG:-/var/log/backup_banco.log}"
 DATA=$(date '+%Y-%m-%d_%H-%M-%S')
 ARQUIVO_LOCAL="/tmp/backup_${DATA}.sql.gz"
 ARQUIVO_S3="${S3_BUCKET}/backup_${DATA}.sql.gz"

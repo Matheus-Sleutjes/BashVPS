@@ -20,7 +20,7 @@ Para a nomenclatura das classes entre as camadas, siga estritamente o seguinte p
 
 ---
 
-### 1. REQUISITOS DO BACKEND (.NET 8+)
+### 1. REQUISITOS DO BACKEND (.NET 10)
 
 #### GestorVitrine.Domain:
 Crie as seguintes entidades puras e seus enums:

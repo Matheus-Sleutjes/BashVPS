@@ -2,32 +2,36 @@
 set -euo pipefail
 
 # ==============================================================================
-# ⚠️  ATENÇÃO — ARQUIVO SENSÍVEL
-# NUNCA faça commit deste arquivo. Contém credenciais AWS.
-# Guarde localmente em: /clientes/<nome-cliente>/restore-bd.sh
+# 🗄️  SCRIPT DE RESTORE DE BANCO DE DADOS
 # ==============================================================================
 
 # ------------------------------------------------------------------------------
-# 🛠️  CONFIGURAÇÕES — ALTERE AQUI PARA CADA DEPLOY
+# 🛠️  CONFIGURAÇÕES — CARREGADAS DO .ENV NA RAIZ
 # ------------------------------------------------------------------------------
-AWS_ACCESS_KEY_ID="SUA_ACCESS_KEY_AQUI"
-AWS_SECRET_ACCESS_KEY="SUA_SECRET_KEY_AQUI"
-AWS_REGION="us-east-1"
-S3_BUCKET="s3://nome-do-seu-bucket/backups"
+if [ -f "$(dirname "$0")/.env" ]; then
+    export $(grep -v '^#' "$(dirname "$0")/.env" | xargs)
+elif [ -f ".env" ]; then
+    export $(grep -v '^#' .env | xargs)
+fi
 
-CONTAINER_BANCO="bd_producao"
-DOCKER_VOLUME="dados_postgres"
-DB_USER="admin_usuario"
-POSTGRES_PASSWORD="senha_segura"
-POSTGRES_DB="nome_do_banco"
+AWS_ACCESS_KEY_ID="${AWS_ACCESS_KEY_ID:-}"
+AWS_SECRET_ACCESS_KEY="${AWS_SECRET_ACCESS_KEY:-}"
+AWS_REGION="${AWS_REGION:-us-east-1}"
+S3_BUCKET="${S3_BUCKET:-}"
 
-COMPOSE_DIR="/app/infra"
-POSTGRES_IMAGE="postgres:16"
+CONTAINER_BANCO="${CONTAINER_BANCO:-bd_producao}"
+DOCKER_VOLUME="${DOCKER_VOLUME_BD:-dados_postgres}"
+DB_USER="${DB_USER:-admin_usuario}"
+POSTGRES_PASSWORD="${POSTGRES_PASSWORD:-}"
+POSTGRES_DB="${POSTGRES_DB:-}"
+
+COMPOSE_DIR="${COMPOSE_DIR:-/app/infra}"
+POSTGRES_IMAGE="${POSTGRES_IMAGE:-postgres:16}"
 
 # ==============================================================================
 # INICIALIZAÇÃO
 # ==============================================================================
-LOG="/var/log/restore_banco.log"
+LOG="${RESTORE_LOG:-/var/log/restore_banco.log}"
 ARQUIVO_LOCAL="/tmp/restore_$(date '+%Y-%m-%d_%H-%M-%S').sql.gz"
 CONTAINER_TEMP="${CONTAINER_BANCO}_restore"
 

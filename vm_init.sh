@@ -2,43 +2,29 @@
 set -euo pipefail
 
 # ==============================================================================
-# ⚠️  ATENÇÃO — ARQUIVO SENSÍVEL
-# ------------------------------------------------------------------------------
-# Este script contém credenciais do cliente.
-# NUNCA faça commit deste arquivo em repositórios git.
-# NUNCA compartilhe este arquivo por e-mail, Slack ou qualquer canal aberto.
-# Após o deploy, apague ou sobrescreva o campo User Data no painel do provedor.
-#
-# Guarde localmente em: /clientes/<nome-cliente>/vm_init.sh
-# Adicione ao .gitignore: vm_init*.sh ou a pasta /clientes/ inteira
+# 🚀 SCRIPT DE INICIALIZAÇÃO DA VM
 # ==============================================================================
 
 # ------------------------------------------------------------------------------
-# 🛠️  CREDENCIAIS DO CLIENTE — ALTERE APENAS AQUI PARA CADA NOVO DEPLOY
+# 🛠️  CONFIGURAÇÕES — CARREGADAS DO .ENV NA RAIZ
 # ------------------------------------------------------------------------------
-CLIENTE_SENHA_VPN="12345678"
+if [ -f "$(dirname "$0")/.env" ]; then
+    export $(grep -v '^#' "$(dirname "$0")/.env" | xargs)
+elif [ -f ".env" ]; then
+    export $(grep -v '^#' .env | xargs)
+fi
 
-# ------------------------------------------------------------------------------
-# 🗄️  VOLUME DO BANCO DE DADOS
-# Preencha para criar o volume Docker automaticamente.
-# Deixe vazio ("") para ignorar a criação do volume.
-# ------------------------------------------------------------------------------
-DOCKER_VOLUME_BD="dados_postgres"
-
-# ------------------------------------------------------------------------------
-# 🗄️  NETWORK
-# Preencha para criar a network Docker automaticamente.
-# Deixe vazio ("") para ignorar a criação do volume.
-# ------------------------------------------------------------------------------
-DOCKER_NETWORK="dados_postgres"
+CLIENTE_SENHA_VPN="${CLIENTE_SENHA_VPN:-}"
+DOCKER_VOLUME_BD="${DOCKER_VOLUME_BD:-dados_postgres}"
+DOCKER_NETWORK="${DOCKER_NETWORK:-minha-rede}"
 
 # ------------------------------------------------------------------------------
 # ⚙️  CONFIGURAÇÕES GERAIS — normalmente não precisa alterar
 # ------------------------------------------------------------------------------
-PASTA_SCRIPTS="/home/ubuntu/scripts"
-LOG_FILE="/var/log/vm_init.log"
-BACKUP_LOG="/var/log/backup_banco.log"
-NOME_CLIENTE_VPN="dev-cliente"
+PASTA_SCRIPTS="${PASTA_SCRIPTS:-/home/ubuntu/scripts}"
+LOG_FILE="${VM_INIT_LOG:-/var/log/vm_init.log}"
+BACKUP_LOG="${BACKUP_LOG:-/var/log/backup_banco.log}"
+NOME_CLIENTE_VPN="${NOME_CLIENTE_VPN:-dev-cliente}"
 
 # ==============================================================================
 # VALIDAÇÕES INICIAIS
@@ -237,7 +223,24 @@ CRON_JOB="0 3 * * * /bin/bash $PASTA_SCRIPTS/backup-bd.sh"
 log "✅ Cron de backup configurado: todo dia às 03:00"
 log "   Script: $PASTA_SCRIPTS/backup-bd.sh"
 log "   Log:    $BACKUP_LOG"
-log "⚠️  Preencha as credenciais AWS em $PASTA_SCRIPTS/backup-bd.sh antes da meia-noite!"
+
+# ==============================================================================
+step "[9/9] Organizando scripts na pasta final"
+# ==============================================================================
+# Identifica a pasta onde o vm_init.sh está rodando
+DIR_ATUAL="$(dirname "$(readlink -f "$0")")"
+
+log "Copiando scripts de $DIR_ATUAL para $PASTA_SCRIPTS ..."
+
+# Lista de arquivos para copiar (incluindo o .env se existir)
+for ARQUIVO in backup-bd.sh deploy.sh restore-bd.sh .env .env-exemplo; do
+    if [ -f "$DIR_ATUAL/$ARQUIVO" ]; then
+        cp "$DIR_ATUAL/$ARQUIVO" "$PASTA_SCRIPTS/"
+        chmod +x "$PASTA_SCRIPTS/$ARQUIVO" 2>/dev/null || true
+        log "  ✅ $ARQUIVO copiado."
+    fi
+done
+
 # ==============================================================================
 log ""
 log "🎉 =================================================="
@@ -245,6 +248,7 @@ log "   VM CONFIGURADA COM SUCESSO!"
 log "   Log completo:  $LOG_FILE"
 log "   Arquivo VPN:   /root/wg0-client-${NOME_CLIENTE_VPN}.conf"
 log "   Volume BD:     ${DOCKER_VOLUME_BD:-não criado}"
-log "   Próximo passo: cole deploy.sh em $PASTA_SCRIPTS e execute"
+log "   Scripts em:    $PASTA_SCRIPTS"
+log "   Próximo passo: execute o deploy"
 log "                  sudo bash $PASTA_SCRIPTS/deploy.sh"
 log "=================================================="
